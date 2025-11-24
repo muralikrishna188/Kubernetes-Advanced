@@ -1,0 +1,23 @@
+# secure-payment.yaml (CORRECTED)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secure-payment-service
+  namespace: payment-ns
+spec:
+  # Pod-level security context applies to all containers
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    # 💥 ADD THESE LINES TO SATISFY THE RESTRICTED PSS 💥
+    seccompProfile:
+      type: RuntimeDefault 
+  containers:
+  - name: payment-api
+    image: custom-payment-image:latest
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsNonRoot: true
