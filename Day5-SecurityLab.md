@@ -1,6 +1,3 @@
-## Security Lab2:
-
-
 -----
 
 # 🛡️ Lab: The 3 Layers of Kubernetes Security
