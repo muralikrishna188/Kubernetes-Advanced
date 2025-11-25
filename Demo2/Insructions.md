@@ -15,6 +15,7 @@ The manifest files ensure:
 Execute this script first to create the namespaces and set up the necessary ServiceAccounts and security standards.
 
 **File: `00-setup.sh`**
+chmod +x 00-setup.sh
 
 ```bash
 #!/bin/bash
