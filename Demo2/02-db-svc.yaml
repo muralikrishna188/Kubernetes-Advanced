@@ -1,0 +1,40 @@
+# Database Deployment and Internal Service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-db
+  namespace: ecom-app
+spec:
+  selector:
+    matchLabels:
+      app: database # Target for Network Policy
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+      - name: db
+        image: postgres:14-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: ecom
+        - name: POSTGRES_PASSWORD
+          value: secret-password # In a real app, use a K8s Secret!
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-db-internal
+  namespace: ecom-app
+spec:
+  selector:
+    app: database
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432

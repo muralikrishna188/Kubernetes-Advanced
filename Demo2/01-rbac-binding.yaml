@@ -1,0 +1,15 @@
+# RoleBinding: Connects the Role to the ServiceAccount (the Auditor)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bind-auditor
+  namespace: billing
+subjects:
+- kind: ServiceAccount
+  name: finance-auditor-sa
+  namespace: billing
+roleRef:
+  kind: Role
+  name: auditor-read-only
+  apiGroup: rbac.authorization.k8s.io
