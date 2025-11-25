@@ -265,3 +265,83 @@ To deploy the entire application and all security features:
     ```
 
 The application is accessible via the **LoadBalancer IP** assigned to the `sample-catalog-svc` in the `ecom-app` namespace.
+
+
+# verify that **RBAC**, **Network Policies**, and **Pod Security Standards (PSS)**
+
+To verify that **RBAC**, **Network Policies**, and **Pod Security Standards (PSS)** are correctly applied in your e-commerce scenario, you need to use specific `kubectl` commands that intentionally *test the boundaries* of the rules you set.
+
+Here are the verification commands organized by security pillar :
+
+-----
+
+## 1\. 🔐 RBAC Verification (The ID Check)
+
+The goal is to verify that the **`finance-auditor-sa`** (in the `billing` namespace) has read-only permissions but *cannot* access sensitive secrets or delete resources.
+
+| Goal | Command | Expected Result | Verification |
+| :--- | :--- | :--- | :--- |
+| **Verify Read Access** | `kubectl auth can-i list pods --as=system:serviceaccount:billing:finance-auditor-sa -n billing` | `yes` | Confirms the `auditor-read-only` role is correctly bound. |
+| **Verify Write Denial** | `kubectl auth can-i delete pods --as=system:serviceaccount:billing:finance-auditor-sa -n billing` | `no` | Confirms the Auditor **cannot** destroy resources. |
+| **Verify Secret Denial**| `kubectl auth can-i get secrets --as=system:serviceaccount:billing:finance-auditor-sa -n billing` | `no` | Confirms sensitive credentials are protected from the auditor. |
+
+-----
+
+## 2\. 🚧 Network Policies Verification (The Firewalls)
+
+The goal is to verify that the **`sample-db-internal`** is isolated, only allowing traffic from the **`sample-catalog-api`** (as defined in `05-netpol-db.yaml`).
+
+### A. Verification of Denial (The Lock)
+
+We try to connect to the database from an unprivileged pod (one without the `app: catalog-api` label).
+
+1.  **Run an unprivileged test pod:**
+    ```bash
+    kubectl run netpol-test-fail --rm -it --image=busybox -n ecom-app --labels=app=hacker -- wget --spider --timeout=2 sample-db-internal:5432
+    ```
+2.  **Expected Result:** The connection attempt must **timeout or fail to establish**, proving the firewall (`05-netpol-db.yaml`) is blocking the traffic.
+
+### B. Verification of Allowance (The Key)
+
+We try to connect to the database from a pod *with* the correct label (`app: catalog-api`).
+
+1.  **Run a privileged test pod:**
+    ```bash
+    kubectl run netpol-test-success --rm -it --image=busybox -n ecom-app --labels=app=catalog-api -- wget --spider --timeout=2 sample-db-internal:5432
+    ```
+2.  **Expected Result:** The connection must **succeed** (or hang briefly while establishing the connection), confirming the Network Policy is allowing the legitimate traffic flow.
+
+-----
+
+## 3\. 🛡️ Pod Security Standards (PSS) Verification
+
+The goal is to verify that the **`payment-ns`** enforces the **Restricted** profile, preventing any insecure deployment, and that the **`sample-payment-api`** pod passed the security checks.
+
+### A. Verification of Enforcement (The Gatekeeper)
+
+We attempt to deploy a simple, unsecure pod into the `payment-ns` to see if the PSS Admission Controller rejects it.
+
+1.  **Attempt an insecure deployment (e.g., missing `runAsNonRoot`):**
+    ```bash
+    # Try creating a standard busybox pod which often runs as root
+    kubectl run insecure-test --image=busybox -n payment-ns -- sleep 3600
+    ```
+2.  **Expected Result:**
+    ```
+    Error from server (Forbidden): ... pods "insecure-test" is forbidden: violates PodSecurity "restricted:latest": ... must set securityContext.runAsNonRoot=true ...
+    ```
+    This error confirms the **PSS enforcement label** on the `payment-ns` is active and correctly blocking non-compliant workloads.
+
+### B. Verification of Compliance (The Success)
+
+We confirm the secure payment pod is running, which proves it satisfied the *Restricted* rules (including `runAsNonRoot: true` and the required `seccompProfile`).
+
+1.  **Check the status of the secure pod:**
+    ```bash
+    kubectl get pod sample-payment-api -n payment-ns
+    ```
+2.  **Expected Result:**
+    ```
+    sample-payment-api-...   1/1     Running   0          ...
+    ```
+    The pod's **`Running`** status is the verification that it successfully passed the PSS checks upon creation.
