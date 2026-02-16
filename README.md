@@ -25,7 +25,7 @@ To secure a **Kubernetes Cluster**, we implement layers of defense. This guide f
 | **Role** | Permissions | A set of permissions (Keys to a specific room). |
 | **RoleBinding** | Granting | Giving those keys to a specific person (**Subject**). |
 
-> **Teacher Tip:** `Role` + `RoleBinding` = **Namespace specific** (Room keys). `ClusterRole` + `ClusterRoleBinding` = **Cluster-wide** (Master keys).
+> **Tip:** `Role` + `RoleBinding` = **Namespace specific** (Room keys). `ClusterRole` + `ClusterRoleBinding` = **Cluster-wide** (Master keys).
 
 ### 2\. Practical Example: The "Junior Dev"
 
