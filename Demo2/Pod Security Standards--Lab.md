@@ -1,9 +1,7 @@
 # Pod Security Standards (PSS) on Azure Kubernetes Service (AKS)
 ### Hands-on Lab Guide for Classroom Delivery
 
-**References used for this lab:**
-- Kube Guy — *Pod Security Standards (PSS) in Kubernetes Explained* (concept primer)
-- Kubernetes.io — *Apply Pod Security Standards at the Cluster Level* (upstream tutorial, kind-based)
+
 
 > **Why this guide is different from the upstream Kubernetes tutorial:** the official tutorial uses `kind` and mounts a custom `AdmissionConfiguration` file directly on the API server. That approach needs control-plane file access, which AKS (a managed service) does **not** expose to you. On AKS you enforce Pod Security Standards using **namespace labels** instead — this is the officially supported pattern for any managed Kubernetes service. This guide walks through that path end-to-end on a real AKS cluster.
 
@@ -335,6 +333,6 @@ az group delete --name $RG --yes --no-wait
 
 ## 16. Source Material
 
-- Kube Guy, *Pod Security Standards (PSS) in Kubernetes Explained: The Successor to PodSecurityPolicy* — conceptual explanation of PSS, profiles, and modes.
+
 - Kubernetes.io, *Apply Pod Security Standards at the Cluster Level* — upstream `kind`-based tutorial this lab adapts for AKS.
 - Kubernetes.io, *Pod Security Admission* / *Pod Security Standards* concept pages, for authoritative field-level detail on the `restricted` profile.
