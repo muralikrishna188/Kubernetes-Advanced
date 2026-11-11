@@ -30,15 +30,31 @@ An e-commerce app split across three namespaces:
 1. **Catalog API port fixed.** nginx listens on `80`, but the old manifest used `8080`, so the LoadBalancer never served traffic. Both `containerPort` and `targetPort` are now `80`.
 2. **Test method changed.** `wget` against Postgres prints "error getting response" in both the allowed and blocked cases. The lab now uses `pg_isready`, which clearly says `accepting connections` or `no response`.
 3. **Payment pod check fixed.** It is a Deployment, so the pod name has a random suffix. Use `-l app=payment-api`.
-4. **Setup script is re-runnable** (no more "AlreadyExists" errors) and warns if NetworkPolicy is not enforced.
-5. **DB password moved into a Secret.**
-6. **Images pinned** (`nginx:1.27-alpine`, `busybox:1.36`) instead of `latest`; probes and resource requests added (needed for smooth scheduling on GKE Autopilot).
-7. **Payment pod hardened further** with `readOnlyRootFilesystem` and no mounted ServiceAccount token.
-8. **PSS namespace label** also sets `enforce-version`, `warn` and `audit`.
+4. **Cluster requirement added.** Dataplane V2 is required for NetworkPolicy enforcement (Step 0).
+5. **Setup script is re-runnable** (no more "AlreadyExists" errors) and warns if NetworkPolicy is not enforced.
+6. **DB password moved into a Secret.**
+7. **Images pinned** (`nginx:1.27-alpine`, `busybox:1.36`) instead of `latest`; probes and resource requests added (needed for smooth scheduling on GKE Autopilot).
+8. **Payment pod hardened further** with `readOnlyRootFilesystem` and no mounted ServiceAccount token.
+9. **PSS namespace label** also sets `enforce-version`, `warn` and `audit`.
 
 ---
 
-## Step 0: Connect to the cluster
+## Step 0: Cluster and connection
+
+### Cluster requirements
+
+- GKE Standard (or Autopilot) cluster, version 1.36.x
+- **Dataplane V2 must be enabled.** On Dataplane V1 (legacy), NetworkPolicy is silently ignored and the "blocked" tests will fail.
+- Console: **Create cluster -> Networking -> Container Network Interface (CNI) -> select "Dataplane V2 (recommended)"**. No other network policy option is needed.
+- Or via CLI (zonal, 2 x e2-medium, about US$0.08/hour):
+
+```bash
+gcloud container clusters create netpol-lab \
+  --location <ZONE> --num-nodes 2 \
+  --machine-type e2-medium --enable-dataplane-v2
+```
+
+### Connect
 
 ```bash
 gcloud container clusters list
@@ -48,13 +64,20 @@ kubectl get nodes
 
 Use the real values from the `list` output (do not type the placeholders).
 
-**Check that NetworkPolicy is enforced** (needed for Step 4):
+### Check that NetworkPolicy is enforced
 
 ```bash
-kubectl get pods -n kube-system | grep -E "anetd|cilium|calico"
+kubectl get pods -n kube-system | grep anetd
 ```
 
-`anetd-...` pods mean Dataplane V2 (enforcing). If you see nothing on a Standard cluster, see Troubleshooting.
+- `anetd-...` pods listed = enforcement ON, continue.
+- Nothing listed = **STOP**. Policies would be ignored. Recreate the cluster with Dataplane V2.
+
+You can also confirm from gcloud (should show `ADVANCED_DATAPATH`):
+
+```bash
+gcloud container clusters list --format="table(name,location,networkConfig.datapathProvider)"
+```
 
 ## Step 1: Setup
 
@@ -195,6 +218,12 @@ Prints a PASS/FAIL line for every check above and exits non-zero on any failure.
 ./99-cleanup.sh
 ```
 
+Then delete the cluster itself so cluster billing stops:
+
+```bash
+gcloud container clusters delete netpol-lab --location <ZONE>
+```
+
 ---
 
 ## Troubleshooting
@@ -202,7 +231,7 @@ Prints a PASS/FAIL line for every check above and exits non-zero on any failure.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `gcloud ... Permission denied on 'locations/location'` | Placeholders `CLUSTER_NAME`/`LOCATION` typed literally | Use real values from `gcloud container clusters list` |
-| Blocked test shows `accepting connections` | NetworkPolicy not enforced, or policy not applied yet | Confirm `anetd`/`calico-node` pods exist; confirm `kubectl get netpol -n ecom-app`; wait 5-10 s after apply |
+| Blocked test shows `accepting connections` | Cluster created with Dataplane V1 (legacy), or policy not applied yet | Confirm `anetd` pods exist (else recreate the cluster with Dataplane V2); confirm `kubectl get netpol -n ecom-app`; wait 5-10 s after apply |
 | `wget: error getting response` | Postgres does not speak HTTP; this is not a block | Use `pg_isready` as in this guide |
 | `couldn't attach to pod ... falling back to streaming logs` | Cloud Shell attach quirk with `-it` | Use `-i --restart=Never --quiet` (no `-t`) |
 | Test pod stays `Pending` / slow first run | Image pull or Autopilot node scale-up | Wait 30-60 s; check `kubectl describe pod` |
@@ -211,11 +240,12 @@ Prints a PASS/FAIL line for every check above and exits non-zero on any failure.
 | Payment pod not created | PSS rejection | `kubectl describe rs -n payment-ns` shows the violated rule |
 | `AlreadyExists` on re-run | Resources from an earlier run | Setup is idempotent; or run `99-cleanup.sh` first |
 
-**If NetworkPolicy is not enforced** (Standard cluster, legacy dataplane), the simplest fix for a class is a new Dataplane V2 cluster:
+**If NetworkPolicy is not enforced** (cluster created with Dataplane V1), Dataplane V2 cannot generally be switched on for an existing cluster. Create a new one:
 
 ```bash
-gcloud container clusters create netpol-lab --location <LOCATION> --enable-dataplane-v2 --num-nodes 2
-gcloud container clusters get-credentials netpol-lab --location <LOCATION>
+gcloud container clusters create netpol-lab --location <ZONE> \
+  --num-nodes 2 --machine-type e2-medium --enable-dataplane-v2
+gcloud container clusters get-credentials netpol-lab --location <ZONE>
 ```
 
 ## Teaching notes
