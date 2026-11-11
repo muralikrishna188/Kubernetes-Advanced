@@ -1,4 +1,5 @@
-# Role: Allows listing, getting, and watching Pods/Logs in the 'billing' namespace
+# Role: read-only access to Pods, Pod logs and Services in the 'billing' namespace.
+# No secrets, no write verbs, no other namespaces.
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

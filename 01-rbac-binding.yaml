@@ -1,4 +1,4 @@
-# RoleBinding: Connects the Role to the ServiceAccount (the Auditor)
+# RoleBinding: connects the Role to the finance-auditor-sa ServiceAccount.
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

@@ -1,4 +1,5 @@
-# finance-auditor-binding.yaml
+# RoleBinding: connects the Role to the finance-auditor-sa ServiceAccount.
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
