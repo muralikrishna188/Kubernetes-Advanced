@@ -1,0 +1,6 @@
+apiVersion: v2
+name: my-ghost-app
+description: A simple Helm chart to run the Ghost blog on Kubernetes (training lab)
+type: application
+version: 0.1.0        # version of the CHART (bump when you change the chart)
+appVersion: "6.72.0"  # version of the APP (Ghost) this chart deploys

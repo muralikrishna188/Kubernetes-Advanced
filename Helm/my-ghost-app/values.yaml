@@ -1,0 +1,33 @@
+# ---------- How many copies of Ghost ----------
+replicaCount: 1
+
+# ---------- Container image ----------
+image:
+  repository: ghost
+  tag: "6-alpine"          # pinned major version, never use "latest" in teaching/production
+  pullPolicy: IfNotPresent
+
+# ---------- Ghost mode ----------
+# "development" = built-in SQLite database (perfect for learning, no MySQL needed)
+# "production"  = REQUIRES an external MySQL 8 database
+nodeEnv: development
+
+# ---------- Ghost URL (explained in the guide) ----------
+prodUrlSchema: false       # false = non-prod URL style, true = prod URL style
+datacenter: us-east
+baseUrl: myapp.org
+urlOverride: ""            # if set, this exact URL is used (we will set it to the LoadBalancer IP)
+
+# ---------- Kubernetes Service ----------
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 2368
+
+# ---------- CPU / memory ----------
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi

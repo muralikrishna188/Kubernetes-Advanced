@@ -1,0 +1,19 @@
+Ghost release "{{ .Release.Name }}" is installed in namespace "{{ .Release.Namespace }}".
+
+1. Wait until the pod is Running and READY 1/1 (about 1-2 minutes):
+     kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+{{- if eq .Values.service.type "LoadBalancer" }}
+
+2. Get the public IP (EXTERNAL-IP may show <pending> for ~1 minute):
+     kubectl get svc {{ .Release.Name }} -n {{ .Release.Namespace }} -w
+
+3. Tell Ghost its real address, then open the blog:
+     helm upgrade {{ .Release.Name }} ./{{ .Chart.Name }} -n {{ .Release.Namespace }} --reuse-values --set urlOverride=http://<EXTERNAL-IP>
+{{- else }}
+
+2. Open the blog on your machine:
+     kubectl port-forward svc/{{ .Release.Name }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+{{- end }}
+
+Blog:  <url>/        Admin: <url>/ghost
