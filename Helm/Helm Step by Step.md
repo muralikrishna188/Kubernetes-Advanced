@@ -357,21 +357,6 @@ helm uninstall my-podinfo-oci -n helm-basics     # clean up
 | Chart reference | `repo/chart` | `oci://registry/path/chart` |
 | Version | `--version X` | `--version X` |
 
-### 3.13 Part 3 review
-
-| Task | Command |
-|---|---|
-| Add repo | `helm repo add NAME URL` |
-| Refresh repo | `helm repo update` |
-| Search | `helm search repo WORD` / `helm search hub WORD` |
-| Read chart | `helm show chart CHART` / `helm show values CHART` |
-| Install | `helm install RELEASE CHART -n NS` |
-| List | `helm list -n NS` |
-| Upgrade | `helm upgrade RELEASE CHART -n NS --set k=v` |
-| History | `helm history RELEASE -n NS` |
-| Rollback | `helm rollback RELEASE REVISION -n NS` |
-| Uninstall | `helm uninstall RELEASE -n NS` |
-
 ---
 
 ## Part 4 — Build and deploy the Ghost blog with our own Helm chart (90 minutes)
@@ -384,7 +369,7 @@ Before packaging any application, ask: *how does it run?* For Ghost:
 
 1. **Port 2368.** Ghost listens on port `2368` inside the container.
 2. **Two modes.**
-   - `development` → uses a built-in **SQLite** file database. Easy, no extra database needed. **Perfect for learning.**
+   - `development` → uses a built-in **SQLite** file database. Easy, no extra database needed.
    - `production` → **requires an external MySQL 8 database.** (This is the default in the official image.)
 3. **The `url` setting.** Ghost must know its own public web address and uses it to build links. We pass it as an environment variable called `url`.
 
