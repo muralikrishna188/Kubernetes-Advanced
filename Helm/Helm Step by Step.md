@@ -1,74 +1,30 @@
-# Helm Step-by-Step on Google Kubernetes Engine (GKE 1.36) — Deploy the Ghost Blog
+# Helm Step-by-Step Kubernetes Engine (GKE 1.36) — Deploy the Ghost Blog
 
-**Training lab guide for students** · Revised from `Helm_Updated.pptx`
+
 
 | | |
 |---|---|
-| **Helm version** | v4.x (tested with v4.3.2). Helm 3 reached end-of-life on 11 Nov 2026, so we teach Helm 4 |
+| **Helm version** | v4.x (tested with v4.3.2). Helm 3 reached end-of-life on 11 Nov 2026, |
 | **Kubernetes** | Google Kubernetes Engine (GKE) **1.36** |
 | **Application** | Ghost blog, image `ghost:6-alpine` |
 | **Time needed** | about 3.5 to 4 hours (agenda in Part 8) |
-| **Cost** | a small 2-node GKE cluster. **Delete it at the end (Part 6)** |
+| **Cost** | a small 2-node GKE cluster.  |
 
-**Symbols used in this guide**
-
-- 🎯 **Goal** — what you will achieve in this step
-- 💡 **Understand** — the idea in simple words
-- ⌨️ **Run** — type these commands
-- ✅ **Expected** — what you should see
-- ⚠️ **Careful** — common mistake
 
 ---
 
-## Part 0 — Instructor notes: what I validated in the old PPT
 
-> Students can skip this part. It lists what was wrong or outdated in the slides, and where this guide fixes it.
-
-### Overall verdict
-
-The **concepts** in the PPT are correct and well ordered. But several **commands and examples no longer work** on a fresh cluster in late 2026. The four biggest problems:
 
 1. **Bitnami charts (slides 9, 11, 13, 20–24):** Bitnami moved its free container images to a frozen "legacy" repository in 2025, so `helm install my-apache bitnami/apache` can fail with image-pull errors. Part 3 of this guide uses **podinfo** (a small, maintained demo app) instead.
 2. **Ghost image (slides 26, 27, 31):** The official `ghost` image now defaults to **production mode, which needs a MySQL database**. The PPT's plain `image: ghost` deployment will therefore most likely fail to start (expect `CrashLoopBackOff`). I could not run Ghost in my sandbox, so confirm this once. Fix: set `NODE_ENV=development` (built-in SQLite) for the lab and **pin the image tag**.
 3. **`helm create` (slide 33):** the current `helm create` also generates `httproute.yaml` and `_helpers.tpl`. The slide's delete list misses `httproute.yaml`, and I confirmed that `helm lint` then fails with a nil-pointer error. Fix: delete everything inside `templates/` and write our own files.
 4. **Helm 3 → Helm 4:** Helm 4 is the current stable release. Some flags were renamed (Part 7).
 
-### Slide-by-slide findings
-
-| Slide | What the slide shows | Problem today | Fixed in this guide |
-|---|---|---|---|
-| 2 | "Helm deploys a Kubernetes cluster in the background" | **Inaccurate.** Helm installs *resources* (Deployments, Services…) into an **existing** cluster. It never creates the cluster | Part 1 |
-| 3 | Helm talks directly to the Kubernetes API | Correct (no Tiller since Helm 3) | Part 1 |
-| 6 | `helm install myrepo/msa —set nameOverride: api —set service.enabled=true —name api` | (a) `—` is an em-dash, must be `--`; (b) the `--name` flag **does not exist** any more (I tested: `unknown flag: --name`), the release name is the first argument; (c) `--set` needs `key=value`, not `key: value` | Correct form: `helm install api myrepo/msa --set nameOverride=api --set service.enabled=true` |
-| 9, 11, 13 | `helm install my-apache oci://…/bitnamicharts/nginx` | Release name says *apache* but chart is *nginx*. Also Bitnami image problem above | Part 3 (podinfo) |
-| 13 | `oci://registry-1.docker.io/bitnamicharts/apache:11.3.10` | A `:tag` on the OCI URL is not valid for `helm install`. Use `--version 11.3.10`. Versions on the slide (9.2.8, 11.3.10, 11.4.29) are very old and inconsistent | Part 3.11 |
-| 14, 15, 28, 33, 35 | Terminal screenshots | They are from **Azure Cloud Shell, dated 2021** (`apache 8.0.2`), while the text says 9.2.8. Retake on GKE with the commands in this guide | whole guide |
-| 18 | `helm delete my-apache` | Still works (alias of `helm uninstall`), but teach `helm uninstall` | Part 3.10 |
-| 23 | values.yaml with `postgresql: auth: … db-name:` | For the `bitnami/postgresql` chart the keys are `auth.username`, `auth.password`, `auth.database`. The `postgresql:` prefix is only used when it is a *sub-chart*, and `db-name` is not a valid key. Passwords in plain text files are also poor practice | Part 3 uses podinfo values |
-| 24 | Upgrade PostgreSQL password with `helm upgrade` | A well-known trap: the database keeps its old password because the data volume persists, so the upgrade does **not** change the DB user's password | removed |
-| 26 | `docker run --rm -p 2368:2368 --name my-ghost ghost` | Needs `-e NODE_ENV=development` now (Docker Hub: image defaults to production, which needs MySQL) | 4.2 |
-| 27, 31 | `image: ghost` (no tag) | Untagged means `latest` (currently Ghost 6.x). Never use `latest` in training or production. Also no `NODE_ENV`, so Ghost starts in production mode and looks for MySQL (expect `CrashLoopBackOff`) | 4.3, 4.8 |
-| 27, 31, 32 | Fixed names: `ghost-app`, `my-service-for-ghost-app`, `my-service-for-my-webapp` | Names are inconsistent between slides. Worse, **fixed names stop you from installing two releases in one namespace**. I rendered two releases and the output was identical, so they would collide. Use `{{ .Release.Name }}` | 4.8, 4.9 |
-| 30 | `Chart.yaml` with `appVersion: 1.16.0` | That is just the `helm create` default and has nothing to do with Ghost. Set it to the Ghost version | 4.6 |
-| 33 | Delete `tests/…, serviceaccount, ingress, hpa, NOTES.txt` | List is outdated (see problem 3 above) | 4.5 |
-| 33, 35 | `helm template --debug my-ghost-app` | Works only because Helm treats a single argument as the chart. Use the clear form `helm template <release> <chart>`. Real dry-run is `helm install --dry-run=client` or `=server` | 4.12 |
-| 34–37 | Override files, `-f a -f b` | Logic is **correct** (I confirmed the right-most `-f` wins, and `--set` beats `-f`). Caution: `prod` with 3 replicas + SQLite = 3 *separate* databases. Real production needs MySQL and HTTPS | 4.12, 4.19 |
-
-### What I tested myself, and what you must test once before class
-
-| ✅ Tested by me (Helm v4.3.2) | 🔶 Please run once on your GKE cluster before teaching |
-|---|---|
-| The whole `my-ghost-app` chart: `helm lint`, `helm template` for every values combination, precedence of `-f` and `--set`, `helm package`, rendered YAML parses correctly | Real deployment on GKE 1.36: Ghost start-up time (I estimate 1–2 minutes), LoadBalancer IP, Ghost admin page |
-| The old PPT chart: lint failure, `--name` error, name collision | The podinfo `ui.message` upgrade demo in Part 3 (confirm key names with `helm show values`, the guide shows how) |
-| Facts checked against official sources: Helm 4 release and Helm 3 end-of-life date, Helm 4 flag renames, GKE 1.36 availability, Ghost image defaults, Bitnami change | Exact output text may differ slightly from the examples |
-
 ---
 
 ## Part 1 — Understand Helm first (15 minutes)
 
 ### 1.1 What is Helm?
-
-🎯 **Goal:** explain Helm to a friend in one minute.
 
 💡 **Kubernetes needs many YAML files** (Deployment, Service, ConfigMap, Ingress…) for even one application. **Helm is the package manager for Kubernetes**, like `apt` on Ubuntu or the Play Store on your phone. You install a whole application with **one command**, and you customize it with **settings (values)** instead of editing YAML.
 
@@ -105,21 +61,6 @@ my-ghost-app/
     ├── service.yaml
     └── NOTES.txt     ← message shown after install
 ```
-
-### 1.4 Quick check
-
-1. What is the difference between a **chart** and a **release**?
-2. Where do you change settings: in the *templates* or in the *values*?
-3. Does Helm create a Kubernetes cluster?
-
-<details><summary>Answers</summary>
-
-1. A chart is the package (recipe). A release is one running installation of it (the dish).
-2. In the values.
-3. No. It installs applications into an existing cluster.
-</details>
-
----
 
 ## Part 2 — Prepare the lab: GKE 1.36 cluster and Helm 4 (25 minutes)
 
@@ -227,9 +168,6 @@ helm version
 
 🎯 **Goal:** learn the complete life cycle: **add repo → search → install → check → upgrade → rollback → uninstall**.
 
-💡 We use **podinfo**, a tiny web application made for Kubernetes demos. It is a better teaching chart than the Bitnami charts in the old slides because its images are still published and maintained.
-
-> ⚠️ **About Bitnami charts (old slides):** in 2025 Bitnami moved its free container images to a frozen "legacy" repository, with no updates and no promise to keep it forever. Charts from `charts.bitnami.com` may therefore install but end in `ImagePullBackOff`. Teach students this as a real-life lesson: *a chart is only as reliable as the images it points to.*
 
 ### 3.1 Create a namespace for this part
 
@@ -361,7 +299,7 @@ helm history my-podinfo -n helm-basics
 
 ✅ **Expected:** after the rollback there are **3 revisions**. Revision 3 says "Rollback to 1". Rollback never erases history; it creates a **new** revision that copies the old one.
 
-### 3.10 Use a values file (the professional way)
+### 3.10 Use a values file 
 
 💡 `--set` is fine for one value. For many values, use a **file** with `-f`.
 
@@ -450,7 +388,6 @@ Before packaging any application, ask: *how does it run?* For Ghost:
    - `production` → **requires an external MySQL 8 database.** (This is the default in the official image.)
 3. **The `url` setting.** Ghost must know its own public web address and uses it to build links. We pass it as an environment variable called `url`.
 
-> ⚠️ **Learning-lab limitation:** with SQLite, data lives **inside the pod**. If the pod restarts, the blog content is lost. And if you run 2 or 3 pods, each pod has its **own separate database**. That is fine for learning Helm. For real production you add MySQL and a persistent volume (see "Next steps" in Part 8).
 
 ### 4.2 (Optional demo) Run Ghost with plain Docker
 
