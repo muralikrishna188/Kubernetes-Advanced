@@ -1,4 +1,4 @@
-# Kubernetes Security Lab: RBAC, NetworkPolicy and Pod Security Standards
+# Kubernetes Security : RBAC, NetworkPolicy and Pod Security Standards
 
 Tested target: **Google Kubernetes Engine (GKE) v1.36.x**, run from **Cloud Shell**.
 
