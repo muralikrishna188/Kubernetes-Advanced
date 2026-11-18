@@ -1,16 +1,6 @@
 # Kubernetes Deployment Strategies — Hands-on Test Lab
 
 Test four deployment strategies on any Kubernetes cluster (AKS, GKE, EKS, kind, minikube) and **see** the behaviour from a live traffic log.
-
-| # | Strategy | What you will prove |
-|---|----------|---------------------|
-| 1 | Recreate | Downtime happens during the switch |
-| 2 | Rolling Update | Zero downtime, old and new versions mixed temporarily; rollback works |
-| 3 | Blue/Green | Instant switch and instant rollback via Service selector |
-| 4 | Canary | A small share of traffic reaches the new version first |
-
-**Time:** ~45 minutes | **Cost:** negligible (tiny pods) | **Needs:** `kubectl` access to a cluster, 2 terminals
-
 ---
 
 ## 0. Setup
