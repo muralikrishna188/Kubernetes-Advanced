@@ -1,4 +1,4 @@
-# Kubernetes Deployment Strategies — Hands-on Test Lab
+# Kubernetes Deployment Strategies 
 
 Test four deployment strategies on any Kubernetes cluster (AKS, GKE, EKS, kind, minikube) and **see** the behaviour from a live traffic log.
 
